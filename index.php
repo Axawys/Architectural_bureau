@@ -1,92 +1,181 @@
 <?php
 include "logic.php";
+session_start();
 
-// Авторизация
-session_start(); // Начало сессии
+$isLoggedIn = isset($_SESSION['user_id']);
 
-if (!isset($_SESSION['user_id'])) {
-    // Пользователь не авторизован, показываем сообщение
-    echo '<br><br><div class="container">
-            <div class="row justify-content-center">
-                <div class="col-12 text-center">
-                    <h3>Вы не вошли в аккаунт</h3>
-                    <p>
-                        <a href="./autorisation.php" class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Войти в аккаунт</a> или 
-                        <a href="./registration.php" class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Регистрация</a>
-                    </p>
-                </div>
-            </div>
-        </div>';
-} else {
-    echo '
-        <br><br>
-        <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <div class="text-center">
-                        <h4>Главное меню</h4>
-                    </div>
-                </div>
-            </div>
+// Получаем значения фильтров из GET-запроса
+$price_filter = $_GET['birth'] ?? '';
+$name_filter = $_GET['name'] ?? '';
+$description_filter = $_GET['description'] ?? '';
+$type_filter = $_GET['id_type'] ?? '';
 
-            <div class="row">
-                <div class="col-12">
-                    <div class="text-center">
-                        <p><a href="logout.php" class="btn btn-danger">Выйти из аккаунта</a></p>
-                    </div>
-                </div>
+// Базовый SQL-запрос
+$sql = "SELECT e.*, j.name as job_name 
+        FROM employees e 
+        LEFT JOIN job_title j ON e.id_type = j.id 
+        WHERE 1=1";
+
+$params = [];
+
+// Добавляем условия фильтрации
+if (!empty($price_filter)) {
+    $sql .= " AND e.birth = ?";
+    $params[] = $price_filter;
+}
+
+if (!empty($name_filter)) {
+    $sql .= " AND e.name LIKE ?";
+    $params[] = "%$name_filter%";
+}
+
+if (!empty($description_filter)) {
+    $sql .= " AND e.description LIKE ?";
+    $params[] = "%$description_filter%";
+}
+
+if (!empty($type_filter)) {
+    $sql .= " AND e.id_type = ?";
+    $params[] = $type_filter;
+}
+
+$sql .= " ORDER BY e.id";
+
+// Выполняем запрос
+$stmt = $connect->prepare($sql);
+$stmt->execute($params);
+$employees = $stmt->fetchAll();
+
+// Получаем список должностей для фильтра
+$job_titles = $connect->query("SELECT * FROM job_title ORDER BY id")->fetchAll();
+?>
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet" type="text/css" />
+<title>Архитектурное бюро</title>
+<style>
+body {
+    background: url('images/background.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #fff;
+}
+.container-blur {
+    backdrop-filter: blur(10px);
+    background-color: rgba(0,0,0,0.5);
+    padding: 30px;
+    border-radius: 10px;
+    margin: 50px auto;
+    max-width: 900px;
+}
+h2, h3, h4 {
+    text-align: center;
+}
+img.office-img {
+    display: block;
+    margin: 20px auto;
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 10px;
+}
+table th, table td {
+    vertical-align: middle !important;
+    text-align: center;
+}
+.footer-text {
+    text-align: center;
+    margin-top: 50px;
+}
+.btn-home {
+    display: inline-block;
+    margin: 10px 5px 0 5px;
+}
+</style>
+</head>
+<body>
+
+<div class="container mt-5">
+
+<?php if (!$isLoggedIn): ?>
+    <!-- Гостевая страница -->
+    <div class="container-blur">
+        <h2>Архитектурное бюро Popoff Inc.</h2>
+        <p>
+            Добро пожаловать на сайт нашего архитектурного бюро! Мы занимаемся проектированием жилых и коммерческих объектов,
+            а также реализуем уникальные дизайнерские решения для интерьеров и экстерьеров.
+        </p>
+        <p>
+            Наша команда состоит из опытных архитекторов, инженеров и дизайнеров, готовых воплотить ваши идеи в реальность.
+        </p>
+
+        <h4>Главный офис</h4>
+        <img src="images/office.jpg" alt="Главный офис" class="office-img">
+
+        <div class="text-center">
+            <a href="./autorisation.php" class="btn btn-primary btn-home">Войти в аккаунт</a>
+            <a href="./registration.php" class="btn btn-secondary btn-home">Регистрация</a>
+        </div>
+    </div>
+<?php else: ?>
+    <!-- Главное меню авторизованного пользователя -->
+    <div class="container-blur">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>Главное меню</h3>
+            <div>
+                <a href="edit.php" class="btn btn-warning me-2">Админ панель</a>
+                <a href="logout.php" class="btn btn-danger">Выйти</a>
             </div>
         </div>
 
-        <br><br><br><br>
-        <div class="container text-center">
-            <h4>Фильтры</h4>
-            <br><br>
-            <div class="row">
-                <div class="col-12">
-                    <div class="text-center">
-                        <form method="get" action="./">
-                            <p class="text-center">По году рождения:</p>
-                            <input type="text" class="form-control" name="birth" placeholder="Введите год рождения" value="' . htmlspecialchars($price_filter) . '">
-                            <br><br><br>
-
-                            <p class="text-center">По ФИО:</p>
-                            <input type="text" class="form-control" name="name" placeholder="Введите название" value="' . htmlspecialchars($name_filter) . '">
-                            <br><br><br>
-
-                            <p class="text-center">По личной характеристике:</p>
-                            <input type="text" class="form-control" name="description" placeholder="Введите личную характеристику" value="' . htmlspecialchars($description_filter) . '">
-                            <br><br><br>
-                    
-                            <p class="text-center">По должности:</p>
-                            <select name="id_type" class="form-select">
-                                <option value="" ' . ($type_filter == '' ? 'selected' : '') . '>Все</option>
-                                <option value="1" ' . ($type_filter == '1' ? 'selected' : '') . '>Архитектор</option>
-                                <option value="2" ' . ($type_filter == '2' ? 'selected' : '') . '>Инженер</option>
-                                <option value="3" ' . ($type_filter == '3' ? 'selected' : '') . '>Дизайнер</option>
-                                <option value="4" ' . ($type_filter == '4' ? 'selected' : '') . '>Генеральный директор</option>
-                                <option value="5" ' . ($type_filter == '5' ? 'selected' : '') . '>Старший архитектор</option>
-                                <option value="6" ' . ($type_filter == '6' ? 'selected' : '') . '>Директор по операциям</option>
-                                <option value="7" ' . ($type_filter == '7' ? 'selected' : '') . '>Председатель совета директоров</option>
-                                <option value="8" ' . ($type_filter == '8' ? 'selected' : '') . '>Менеджер проектов</option>
-                            </select>
-                            <br><br><br>
-
-                            <div class="text-center">
-                                <button type="submit" class="btn btn-primary">Применить фильтр</button>
-                                <a href="./" class="btn btn-danger">Очистить</a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+        <h4>Фильтры</h4>
+        <form method="get" action="./" class="text-start mt-4">
+            <div class="mb-3">
+                <label>По году рождения:</label>
+                <input type="text" class="form-control" name="birth" placeholder="Введите год рождения" value="<?= htmlspecialchars($price_filter) ?>">
             </div>
-        </div>
-        <br><br><br><br><br>
 
-        <div class="container text-center">
-            <h4>Сотрудники</h4>
-            <br>
-            <table class="table table-dark">
+            <div class="mb-3">
+                <label>По ФИО:</label>
+                <input type="text" class="form-control" name="name" placeholder="Введите ФИО" value="<?= htmlspecialchars($name_filter) ?>">
+            </div>
+
+            <div class="mb-3">
+                <label>По личной характеристике:</label>
+                <input type="text" class="form-control" name="description" placeholder="Введите личную характеристику" value="<?= htmlspecialchars($description_filter) ?>">
+            </div>
+
+            <div class="mb-3">
+                <label>По должности:</label>
+                <select name="id_type" class="form-select">
+                    <option value="" <?= ($type_filter == '' ? 'selected' : '') ?>>Все</option>
+                    <?php foreach ($job_titles as $job): ?>
+                        <option value="<?= $job['id'] ?>" <?= ($type_filter == $job['id'] ? 'selected' : '') ?>>
+                            <?= htmlspecialchars($job['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary me-2">Применить фильтр</button>
+                <a href="./" class="btn btn-secondary">Очистить</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Таблица сотрудников -->
+    <div class="container-blur mt-4">
+        <h4 class="text-center">Сотрудники</h4>
+        <?php if (empty($employees)): ?>
+            <div class="alert alert-info text-center">
+                Нет сотрудников, соответствующих критериям фильтра
+            </div>
+        <?php else: ?>
+            <table class="table table-dark table-striped mt-3">
                 <thead>
                     <tr>
                         <th scope="col">Фото</th>
@@ -96,44 +185,36 @@ if (!isset($_SESSION['user_id'])) {
                         <th scope="col">Личная характеристика</th>
                     </tr>
                 </thead>
-                <tbody>';
-
-    foreach ($employees as $employee) { // Исправлено $emloyee на $employee
-        echo '<tr>
-                <td>';
-        if (isset($_SESSION['user_id'])) {
-            echo '<img class="img-thumbnail" alt="Responsive image" src="catalogue_images/' . htmlspecialchars($employee['img_path']) . '"/>';
-        } else {
-            echo '<img class="img-thumbnail" alt="Responsive image" src="catalogue_images/low.png"/>';
-        }
-        echo '</td>
-                <td>' . htmlspecialchars($employee['name']) . '</td>
-                <td>' . htmlspecialchars($employee['birth']) . '</td>
-                <td>' . htmlspecialchars($job_title[$employee['id_type'] - 1]['name']) . '</td>
-                <td>' . htmlspecialchars($employee['description']) . '</td>
-              </tr>';
-    }
-
-    echo '</tbody>
+                <tbody>
+                    <?php foreach ($employees as $employee): ?>
+                        <tr>
+                            <td>
+                                <div style="width:100px; height:100px; overflow:hidden; margin:auto; border-radius:5px;">
+                                    <?php if (!empty($employee['img_path']) && file_exists('catalogue_images/' . $employee['img_path'])): ?>
+                                        <img class="img-thumbnail" alt="Фото" src="catalogue_images/<?= htmlspecialchars($employee['img_path']) ?>" style="width:100%; height:100%; object-fit:cover;">
+                                    <?php else: ?>
+                                        <div class="bg-secondary d-flex align-items-center justify-content-center text-white" style="width:100%; height:100%;">
+                                            Нет фото
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td><?= htmlspecialchars($employee['name']) ?></td>
+                            <td><?= htmlspecialchars($employee['birth']) ?></td>
+                            <td><?= htmlspecialchars($employee['job_name'] ?? 'Не указана') ?></td>
+                            <td><?= htmlspecialchars($employee['description']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
             </table>
-        </div>
-    ';
-}
-?>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link href="css/style.css" rel="stylesheet" type="text/css" />
-    <title>Архитектурное бюро</title>
-</head>
-<body>
-    <br><br><br><br>
-    <footer>
-    Архитектурное бюро 2025 &copy; Все права защищены
+</div>
+
+<footer class="footer-text">
+    Архитектурное бюро 2026 &copy; Все права защищены
 </footer>
 
 </body>
