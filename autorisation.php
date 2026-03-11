@@ -1,84 +1,101 @@
 <?php
-session_start(); // Начинаем сессию
+session_start();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Подключение к базе данных
     require_once 'db.php';
-
     try {
-        $conn = new PDO($dsn, $username, $password);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
         $email = htmlspecialchars($_POST['email']);
         $password = $_POST['password'];
 
-        // Получаем пользователя по email
         $sql = "SELECT * FROM users WHERE email = :email";
-        $stmt = $conn->prepare($sql);
+        $stmt = $connect->prepare($sql);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
 
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Проверяем, совпадает ли введённый пароль
         if ($user && password_verify($password, $user['password'])) {
-            // Устанавливаем сессию
-            $_SESSION['user_id'] = $user['id']; // Предположим, что у Вас есть id пользователя в таблице
+            $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
-            header("Location: index.php"); // Перенаправление на личный кабинет или другую страницу
+            header("Location: index.php");
             exit();
         } else {
-            header("Location: autorisation.php?error=passwords_not_matching");
+            $errorMessage = "Неправильный логин или пароль";
         }
     } catch (PDOException $e) {
-        echo "Ошибка подключения: " . $e->getMessage();
+        $errorMessage = "Ошибка подключения: " . $e->getMessage();
     }
-
-    // Закрыть соединение
-    $conn = null;
-}
-
-if (isset($_GET['error']) && $_GET['error'] === 'passwords_not_matching') {
-    echo "<div class='alert alert-danger'>Неправильный логин или пароль</div>";                                          
+    $connect = null;
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link href="css/style.css" rel="stylesheet" type="text/css" />
-    <title>Авторизация</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<title>Авторизация</title>
+<style>
+body {
+    background: url('images/background.jpg') no-repeat center center fixed;
+    background-size: cover;
+}
+.form-container {
+    backdrop-filter: blur(10px);
+    background-color: rgba(255,255,255,0.3);
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 400px;
+    margin: 80px auto;
+}
+footer {
+    text-align: center;
+    margin-top: 50px;
+    color: #fff;
+}
+</style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-12">
-                <h2>Авторизация</h2>
-                <form method="POST">
-                    <br />
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" placeholder="Введите email" required>
-                    </div>
+<div class="form-container">
+    <h2 class="mb-4 text-center">Авторизация</h2>
 
-                    <br />
-                    <div class="form-group">
-                        <label for="password">Пароль</label>
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Введите пароль" required>
-                    </div>
-                    <br />
-                    <button type="submit" class="btn btn-primary">Войти</button>
-                </form>
+    <?php if (!empty($errorMessage)): ?>
+        <div class="alert alert-danger"><?= $errorMessage ?></div>
+    <?php endif; ?>
 
-                <br /><br />
-                <p> Нет аккаунта? <a href="./registration.php" class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Регистрация</a></p>
-            </div>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" placeholder="Введите email" required>
         </div>
-    </div>
-    <footer>
+
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" name="password" placeholder="Введите пароль" required>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <button type="submit" class="btn btn-primary">Войти</button>
+            <button type="button" class="btn btn-secondary" onclick="goHome()">Главная</button>
+        </div>
+    </form>
+
+    <p class="mt-3 text-center">
+        Нет аккаунта? 
+        <a href="./registration.php" class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Регистрация</a>
+    </p>
+</div>
+
+<script>
+function goHome() {
+    if(confirm("Все введённые данные будут потеряны. Вы уверены, что хотите вернуться на главную?")) {
+        window.location.href = 'index.php';
+    }
+}
+</script>
+
+<footer>
     Архитектурное бюро 2025 &copy; Все права защищены
 </footer>
 </body>
